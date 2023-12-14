@@ -1,0 +1,1 @@
+backupervenev\scripts\activate

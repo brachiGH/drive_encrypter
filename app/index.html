@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Backup App</title>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
+    <style>
+        body {
+            background-color: #1F1F1F;
+            color: white;
+            font-family: system-ui;
+        }
+
+        ul {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        li {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px;
+            border-bottom: 1px solid #ccc;
+            cursor: pointer;
+        }
+
+        li:hover {
+            background-color: #656060;
+        }
+
+        .icon {
+            margin-right: 10px;
+        }
+
+        .trash-icon {
+            margin-left: 10px;
+        }
+
+        .custom-file-input-label {
+            display: inline-block;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .custom-file-input-label:hover {
+            background-color: #656060;
+        }
+
+        .custom-drop-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 500px;
+            height: 300px;
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .drop-text {
+            text-align: center;
+            font-size: 18px;
+            color: #afaeae;
+        }
+
+        .toggle-container {
+            display: block;
+            margin: 10px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .toggle-button {
+            width: 50px;
+            height: 25px;
+            background-color: gray;
+            border-radius: 12.5px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: background-color 0.3s ease;
+        }
+
+        #encryptionToggle:checked+.toggle-button {
+            left: 25px;
+            background-color: #4caf50;
+            /* Green color for "Files Encrypted" */
+        }
+
+        .toggle-label {
+            display: inline-block;
+            margin-left: 60px;
+            font-size: 16px;
+            color: gray;
+            transition: color 0.3s ease;
+        }
+
+        #encryptionToggle:checked+.toggle-button+.toggle-label {
+            color: #4caf50;
+            /* Green color for "Files Encrypted" */
+        }
+
+        #encryptionToggle:not(:checked)+.toggle-button+.toggle-label {
+            color: #e53935;
+            /* Red color for "Not Encrypted" */
+        }
+
+        #context-menu {
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ccc;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+        }
+
+        #context-menu button {
+            display: block;
+            width: 100%;
+            padding: 5px 10px;
+            border: none;
+            background-color: transparent;
+            cursor: pointer;
+        }
+
+        #context-menu button:hover {
+            background-color: #f0f0f0;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .tab-button {
+            background-color: #333;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+
+        .tab-button:hover {
+            background-color: #444;
+        }
+
+        .tab-button.active {
+            background-color: #555;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        /* Your existing CSS styles */
+        button {
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .active {
+            background-color: #4caf50;
+            /* Green color for "On" state */
+            color: white;
+        }
+
+        #status {
+            display: contents;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="tabs">
+        <button class="tab-button" onmouseover="showTab('tap-1')" ondragover="DragOver('tap-1')">List Of Uploaded
+            Folders</button>
+        <button class="tab-button" onmouseover="showTab('tap-2')" ondragover="DragOver('tap-2')">Backup A Folder
+            Or File</button>
+        <button class="tab-button" onmouseover="showTab('tap-3')"
+            ondragover="handleDragOver('tap-3')">Auto-Sync</button>
+    </div>
+    <div class="tab-content" id="tap-1">
+        <p>List Of Uploaded Folders</p>
+        <ul id="LOUF"></ul>
+        <div id="context-menu" class="hidden">
+            <button id="download-button">Download</button>
+            <button id="delete-button">Delete</button>
+        </div>
+    </div>
+    <div class="tab-content" id="tap-2">
+        <p>Backup A Folder Or File</p>
+        <label class="toggle-container">
+            <input type="checkbox" id="encryptionToggle" checked>
+            <div class="toggle-button"></div>
+            <div class="toggle-label" id="toggleLabel">Files Encrypted</div>
+        </label>
+
+        <label for="folderInput" class="custom-file-input-label">
+            Choose Folder
+            <input type="file" id="folderInput" multiple webkitdirectory directory style="display:none;" />
+        </label>
+        <label for="fileInput" class="custom-file-input-label">
+            Choose Files
+            <input type="file" id="fileInput" multiple style="display:none;" />
+        </label>
+        <div id="dropArea" class="custom-drop-area">
+            <span class="drop-text">Drag and drop files or folders here</span>
+        </div>
+        <div id="selectedItems"></div>
+    </div>
+    <div class="tab-content" id="tap-3">
+        <p>auto-sync</p>
+        <button id="toggleButton"><p id="status">Status: Off (disabled)</p></button> 
+        <button id="refreshButton">Refresh</button>
+        <p id="refresh-data"></p>
+    </div>
+
+    <script>
+        function showTab(tabId) {
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => content.style.display = 'none');
+
+            // Deactivate all tab buttons
+            const tabButtons = document.querySelectorAll('.tab-button');
+            tabButtons.forEach(button => button.classList.remove('active'));
+
+            // Show the selected tab content
+            const selectedTab = document.getElementById(tabId);
+            selectedTab.style.display = 'block';
+
+            // Activate the selected tab button
+            const selectedButton = document.querySelector(`[onmouseover="showTab('${tabId}')"]`);
+            selectedButton.classList.add('active');
+        }
+
+        function DragOver(tabId) {
+            event.preventDefault();
+            showTab(tabId)
+        }
+
+        // Show the initial tab on page load
+        showTab('tap-1');
+    </script>
+
+    <script src="renderer.js"></script>
+</body>
+
+</html>
